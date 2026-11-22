@@ -12,9 +12,11 @@ DB_PATH = Path(__file__).parent / "data" / "shop.db"
 MODEL = os.getenv("MODEL", "anthropic:claude-haiku-5-5")
 MAX_ATTEMPTS = 3
 
-# Remove stray spaces/line breaks from a pasted key (they break the HTTP header).
+# Clean a pasted key: drop spaces, line breaks, quotes and invisible characters
+# (any of these break the HTTP header).
 if key := os.getenv("ANTHROPIC_API_KEY"):
-    os.environ["ANTHROPIC_API_KEY"] = "".join(key.split())
+    os.environ["ANTHROPIC_API_KEY"] = "".join(c for c in key if c.isascii() and c.isprintable()
+                                              and not c.isspace() and c not in "\"'")
 
 SQL_PROMPT = """You write SQLite queries for the schema below.
 Write exactly one read-only SELECT query. Use only tables and columns in the schema.

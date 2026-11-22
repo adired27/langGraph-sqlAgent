@@ -1,4 +1,6 @@
 """Web front end.  Run: streamlit run app.py"""
+import os
+
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -73,6 +75,11 @@ def show_result(result):
 st.title("💬 Talk to Your Data")
 st.caption("Ask a question in plain English. The agent writes SQL, runs it, fixes its own mistakes, "
            "and explains the answer. Read-only: it can never change data.")
+
+if not os.getenv("ANTHROPIC_API_KEY", "").startswith("sk-ant-"):
+    st.error("The Anthropic API key is missing or malformed. Add ANTHROPIC_API_KEY to `.env` "
+             "(local) or to the app's Secrets (Streamlit Cloud), then restart.")
+    st.stop()
 
 get_graph()  # builds the database first if it's missing
 
