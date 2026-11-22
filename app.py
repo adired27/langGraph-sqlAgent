@@ -66,7 +66,7 @@ def run_agent(question):
 def show_result(result):
     st.markdown(result["answer"])
     if result.get("rows"):
-        with st.expander("See the SQL and data"):
+        with st.expander("See the SQL and data", expanded=True):
             st.code(result["sql"], language="sql")
             st.dataframe([dict(zip(result["columns"], r)) for r in result["rows"]], hide_index=True)
 
