@@ -87,6 +87,21 @@ ask_tab, data_tab = st.tabs(["💬 Ask", "🗂️ Browse data"])
 
 with ask_tab:
     st.session_state.setdefault("chat", [])
+    limit_reached = len(st.session_state.chat) // 2 >= MAX_QUESTIONS
+
+    # Example prompts, always visible at the top
+    st.caption("Try an example:")
+    cols = st.columns(2)
+    for i, example in enumerate(EXAMPLES):
+        if cols[i % 2].button(example, key=f"ex{i}", use_container_width=True, disabled=limit_reached):
+            st.session_state.pending = example
+            st.rerun()
+
+    if limit_reached:
+        st.info(f"You've reached the demo limit of {MAX_QUESTIONS} questions. Thanks for trying it out!")
+    question = st.chat_input("Or ask your own question...", disabled=limit_reached) \
+        or st.session_state.pop("pending", None)
+
     for msg in st.session_state.chat:
         with st.chat_message(msg["role"]):
             if msg["role"] == "assistant":
@@ -94,20 +109,6 @@ with ask_tab:
             else:
                 st.markdown(msg["text"])
 
-    asked = len(st.session_state.chat) // 2
-    if asked >= MAX_QUESTIONS:
-        st.info(f"You've reached the demo limit of {MAX_QUESTIONS} questions. Thanks for trying it out!")
-    question = st.chat_input("e.g. Which city has the most customers?", disabled=asked >= MAX_QUESTIONS) \
-        or st.session_state.pop("pending", None)
-
-    # Example cards, only shown before the first question
-    if not st.session_state.chat and not question:
-        st.caption("Or try one of these:")
-        cols = st.columns(2)
-        for i, example in enumerate(EXAMPLES):
-            if cols[i % 2].button(example, key=f"ex{i}", use_container_width=True):
-                st.session_state.pending = example
-                st.rerun()
     if question:
         st.session_state.chat.append({"role": "user", "text": question})
         with st.chat_message("user"):
