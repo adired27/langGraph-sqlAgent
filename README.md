@@ -2,6 +2,10 @@
 
 LangGraph agent that turns natural language questions into SQL, runs them, and fixes its own errors through a generate → execute → retry loop.
 
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://langgraph-sqlagent-bwbqj2pqrnyiaremszmfoo.streamlit.app/)
+
+**Live demo:** https://langgraph-sqlagent-bwbqj2pqrnyiaremszmfoo.streamlit.app/ (no setup or API key needed)
+
 ```
 > Who are the top 3 customers by total spend?
   [sql #1] SELECT c.name, SUM(o.total) AS spent FROM orders o JOIN customers c ...
