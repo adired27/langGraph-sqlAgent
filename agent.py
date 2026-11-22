@@ -26,6 +26,7 @@ class State(TypedDict, total=False):
     sql: str
     error: str | None
     attempts: int
+    columns: list
     rows: list
     answer: str
 
@@ -62,14 +63,16 @@ def build_graph(llm=None, db_path=DB_PATH):
         if state.get("error"):
             prompt += f"\n\nYour last query:\n{state['sql']}\nfailed with: {state['error']}\nFix it."
         reply = llm.invoke([SystemMessage(SQL_PROMPT), HumanMessage(prompt)])
-        return {"sql": clean_sql(reply.content), "attempts": state["attempts"] + 1}
+        return {"sql": clean_sql(reply.text), "attempts": state["attempts"] + 1}
 
     def execute_sql(state: State):
         sql = state["sql"]
         if not sql.lower().startswith(("select", "with")) or ";" in sql:
             return {"error": "Only a single SELECT query is allowed."}
         try:
-            return {"rows": db.execute(sql).fetchmany(50), "error": None}
+            cursor = db.execute(sql)
+            columns = [c[0] for c in cursor.description]
+            return {"columns": columns, "rows": cursor.fetchmany(50), "error": None}
         except sqlite3.Error as e:
             return {"error": str(e)}
 
@@ -78,7 +81,7 @@ def build_graph(llm=None, db_path=DB_PATH):
             return {"answer": f"Sorry, I couldn't answer that. Last error: {state['error']}"}
         prompt = f"Question: {state['question']}\nSQL: {state['sql']}\nRows: {state['rows']}"
         reply = llm.invoke([SystemMessage(ANSWER_PROMPT), HumanMessage(prompt)])
-        return {"answer": reply.content}
+        return {"answer": reply.text}
 
     def route(state: State):
         if state["error"] and state["attempts"] < MAX_ATTEMPTS:

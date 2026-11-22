@@ -35,6 +35,7 @@ graph TD
 | File | What it does |
 |---|---|
 | `agent.py` | State, nodes, router and graph: the whole agent |
+| `app.py` | Web chat UI (Streamlit): shows each step live, plus the SQL and result table |
 | `main.py` | Command line: ask one question or keep chatting |
 | `data/seed.py` | Builds a sample store database (customers, products, orders) |
 
@@ -49,6 +50,14 @@ python data/seed.py           # creates data/shop.db
 ```
 
 ## Usage
+
+**Web app:**
+
+```bash
+streamlit run app.py           # opens http://localhost:8501
+```
+
+**Command line:**
 
 ```bash
 python main.py "Which city has the most customers?"

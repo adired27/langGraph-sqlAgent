@@ -1,0 +1,117 @@
+"""Web front end.  Run: streamlit run app.py"""
+import streamlit as st
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from agent import DB_PATH, build_graph, connect  # noqa: E402
+
+EXAMPLES = [
+    "Who are the top 3 customers by total spend?",
+    "How many customers are in each city?",
+    "What's the best-selling product category by revenue?",
+    "Which month in 2026 had the most orders?",
+]
+
+st.set_page_config(page_title="Talk to Your Data", page_icon="💬", layout="wide")
+
+
+@st.cache_resource
+def get_graph():
+    return build_graph()
+
+
+def load_tables():
+    """Return {table: (schema rows, data rows as dicts)} for the Browse tab."""
+    db = connect()
+    tables = {}
+    for (name,) in db.execute("SELECT name FROM sqlite_master WHERE type='table'"):
+        schema = [{"column": c[1], "type": c[2], "primary key": bool(c[5])}
+                  for c in db.execute(f"PRAGMA table_info({name})")]
+        cursor = db.execute(f"SELECT * FROM {name}")
+        cols = [c[0] for c in cursor.description]
+        tables[name] = (schema, [dict(zip(cols, r)) for r in cursor.fetchall()])
+    return tables
+
+
+def run_agent(question):
+    """Stream the graph, showing each step live. Returns the final result."""
+    result = {}
+    with st.status("Thinking...", expanded=True) as status:
+        for step in get_graph().stream({"question": question}, stream_mode="updates"):
+            for node, update in step.items():
+                result.update(update)
+                if node == "get_schema":
+                    st.write("📋 Read the database structure")
+                elif node == "generate_sql":
+                    st.write(f"✍️ Wrote SQL (attempt {update['attempts']})")
+                    st.code(update["sql"], language="sql")
+                elif node == "execute_sql" and update.get("error"):
+                    st.write(f"⚠️ Query failed: `{update['error']}`. Retrying...")
+                elif node == "execute_sql":
+                    st.write(f"✅ Ran the query: {len(update['rows'])} row(s)")
+        failed = bool(result.get("error"))
+        status.update(label="Couldn't answer" if failed else "Done", state="error" if failed else "complete",
+                      expanded=False)
+    return result
+
+
+def show_result(result):
+    st.markdown(result["answer"])
+    if result.get("rows"):
+        with st.expander("See the SQL and data"):
+            st.code(result["sql"], language="sql")
+            st.dataframe([dict(zip(result["columns"], r)) for r in result["rows"]], hide_index=True)
+
+
+# --- sidebar --------------------------------------------------------------
+with st.sidebar:
+    st.header("Try asking")
+    for ex in EXAMPLES:
+        if st.button(ex, use_container_width=True):
+            st.session_state.pending = ex
+    st.divider()
+    if st.button("Clear chat"):
+        st.session_state.chat = []
+
+# --- main -----------------------------------------------------------------
+st.title("💬 Talk to Your Data")
+st.caption("Ask a question in plain English. The agent writes SQL, runs it, fixes its own mistakes, "
+           "and explains the answer. Read-only: it can never change data.")
+
+if not DB_PATH.exists():
+    st.error("No database found. Run: `python data/seed.py`")
+    st.stop()
+
+ask_tab, data_tab = st.tabs(["💬 Ask", "🗂️ Browse data"])
+
+with ask_tab:
+    st.session_state.setdefault("chat", [])
+    for msg in st.session_state.chat:
+        with st.chat_message(msg["role"]):
+            if msg["role"] == "assistant":
+                show_result(msg["result"])
+            else:
+                st.markdown(msg["text"])
+
+    question = st.chat_input("e.g. Which city has the most customers?") or st.session_state.pop("pending", None)
+    if question:
+        st.session_state.chat.append({"role": "user", "text": question})
+        with st.chat_message("user"):
+            st.markdown(question)
+        with st.chat_message("assistant"):
+            result = run_agent(question)
+            show_result(result)
+        st.session_state.chat.append({"role": "assistant", "result": result})
+
+with data_tab:
+    tables = load_tables()
+    for tab, (name, (schema, rows)) in zip(st.tabs(list(tables)), tables.items()):
+        with tab:
+            schema_col, data_col = st.columns([1, 3])
+            with schema_col:
+                st.subheader("Schema")
+                st.dataframe(schema, hide_index=True)
+            with data_col:
+                st.subheader(f"Data ({len(rows)} rows)")
+                st.dataframe(rows, hide_index=True, height=420)
