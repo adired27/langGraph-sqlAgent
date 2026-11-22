@@ -14,9 +14,11 @@ MAX_ATTEMPTS = 3
 
 SQL_PROMPT = """You write SQLite queries for the schema below.
 Write exactly one read-only SELECT query. Use only tables and columns in the schema.
+Sort results in a meaningful order (e.g. highest first) with ORDER BY.
 Reply with ONLY the SQL, no markdown, no explanation."""
 
-ANSWER_PROMPT = """Answer the user's question in 1-2 plain sentences using only the result rows.
+ANSWER_PROMPT = """Answer the user's question in 1-3 plain sentences using only the result rows.
+Give only the final answer: no thinking out loud, no self-corrections.
 If there are no rows, say no matching data was found."""
 
 
@@ -52,7 +54,7 @@ def clean_sql(text):
 
 
 def build_graph(llm=None, db_path=DB_PATH):
-    llm = llm or init_chat_model(MODEL)
+    llm = llm or init_chat_model(MODEL, max_tokens=1024)  # caps cost per call
     db = connect(db_path)
 
     def get_schema(state: State):

@@ -5,12 +5,24 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from agent import DB_PATH, build_graph, connect  # noqa: E402
+from data.seed import build as build_database  # noqa: E402
+
+MAX_QUESTIONS = 10  # per visitor session, to limit API spend on the public app
+
+EXAMPLES = [
+    "Which city brings in the most revenue, and who is the top spender there?",
+    "For each product category, what percentage of orders were cancelled?",
+    "Which customers spent more in 2026 than in 2025?",
+    "What's the average order value by month in 2026, and which month was the highest?",
+]
 
 st.set_page_config(page_title="Talk to Your Data", page_icon="💬", layout="wide")
 
 
 @st.cache_resource
 def get_graph():
+    if not DB_PATH.exists():  # e.g. on a fresh deploy
+        build_database()
     return build_graph()
 
 
@@ -57,19 +69,12 @@ def show_result(result):
             st.dataframe([dict(zip(result["columns"], r)) for r in result["rows"]], hide_index=True)
 
 
-# --- sidebar --------------------------------------------------------------
-with st.sidebar:
-    if st.button("Clear chat"):
-        st.session_state.chat = []
-
 # --- main -----------------------------------------------------------------
 st.title("💬 Talk to Your Data")
 st.caption("Ask a question in plain English. The agent writes SQL, runs it, fixes its own mistakes, "
            "and explains the answer. Read-only: it can never change data.")
 
-if not DB_PATH.exists():
-    st.error("No database found. Run: `python data/seed.py`")
-    st.stop()
+get_graph()  # builds the database first if it's missing
 
 ask_tab, data_tab = st.tabs(["💬 Ask", "🗂️ Browse data"])
 
@@ -82,7 +87,20 @@ with ask_tab:
             else:
                 st.markdown(msg["text"])
 
-    question = st.chat_input("e.g. Which city has the most customers?")
+    asked = len(st.session_state.chat) // 2
+    if asked >= MAX_QUESTIONS:
+        st.info(f"You've reached the demo limit of {MAX_QUESTIONS} questions. Thanks for trying it out!")
+    question = st.chat_input("e.g. Which city has the most customers?", disabled=asked >= MAX_QUESTIONS) \
+        or st.session_state.pop("pending", None)
+
+    # Example cards, only shown before the first question
+    if not st.session_state.chat and not question:
+        st.caption("Or try one of these:")
+        cols = st.columns(2)
+        for i, example in enumerate(EXAMPLES):
+            if cols[i % 2].button(example, key=f"ex{i}", use_container_width=True):
+                st.session_state.pending = example
+                st.rerun()
     if question:
         st.session_state.chat.append({"role": "user", "text": question})
         with st.chat_message("user"):
@@ -91,6 +109,10 @@ with ask_tab:
             result = run_agent(question)
             show_result(result)
         st.session_state.chat.append({"role": "assistant", "result": result})
+
+    if st.session_state.chat and st.button("🗑️ Clear chat"):
+        st.session_state.chat = []
+        st.rerun()
 
 with data_tab:
     tables = load_tables()
