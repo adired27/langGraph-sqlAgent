@@ -6,13 +6,6 @@ load_dotenv()
 
 from agent import DB_PATH, build_graph, connect  # noqa: E402
 
-EXAMPLES = [
-    "Who are the top 3 customers by total spend?",
-    "How many customers are in each city?",
-    "What's the best-selling product category by revenue?",
-    "Which month in 2026 had the most orders?",
-]
-
 st.set_page_config(page_title="Talk to Your Data", page_icon="💬", layout="wide")
 
 
@@ -66,11 +59,6 @@ def show_result(result):
 
 # --- sidebar --------------------------------------------------------------
 with st.sidebar:
-    st.header("Try asking")
-    for ex in EXAMPLES:
-        if st.button(ex, use_container_width=True):
-            st.session_state.pending = ex
-    st.divider()
     if st.button("Clear chat"):
         st.session_state.chat = []
 
@@ -94,7 +82,7 @@ with ask_tab:
             else:
                 st.markdown(msg["text"])
 
-    question = st.chat_input("e.g. Which city has the most customers?") or st.session_state.pop("pending", None)
+    question = st.chat_input("e.g. Which city has the most customers?")
     if question:
         st.session_state.chat.append({"role": "user", "text": question})
         with st.chat_message("user"):
