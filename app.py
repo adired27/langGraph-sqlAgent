@@ -18,7 +18,7 @@ EXAMPLES = [
     "What's the average order value by month in 2026, and which month was the highest?",
 ]
 
-st.set_page_config(page_title="Talk to Your Data", page_icon="💬", layout="wide")
+st.set_page_config(page_title="Talk to Your SQL Agent", page_icon="💬", layout="wide")
 
 
 @st.cache_resource
@@ -72,7 +72,15 @@ def show_result(result):
 
 
 # --- main -----------------------------------------------------------------
-st.title("💬 Talk to Your Data")
+st.session_state.setdefault("chat", [])
+st.session_state.setdefault("asked", 0)  # not reset by Clear chat, so the limit holds
+
+title_col, clear_col = st.columns([5, 1], vertical_alignment="center")
+title_col.title("💬 Talk to Your SQL Agent")
+if clear_col.button("🗑️ Clear chat", use_container_width=True):
+    st.session_state.chat = []
+    st.session_state.pop("pending", None)
+    st.rerun()
 st.caption("Ask a question in plain English. The agent writes SQL, runs it, fixes its own mistakes, "
            "and explains the answer. Read-only: it can never change data.")
 
@@ -86,8 +94,7 @@ get_graph()  # builds the database first if it's missing
 ask_tab, data_tab = st.tabs(["💬 Ask", "🗂️ Browse data"])
 
 with ask_tab:
-    st.session_state.setdefault("chat", [])
-    limit_reached = len(st.session_state.chat) // 2 >= MAX_QUESTIONS
+    limit_reached = st.session_state.asked >= MAX_QUESTIONS
 
     # Example prompts at the top, minus ones already asked in this chat
     used = {m["text"] for m in st.session_state.chat if m["role"] == "user"}
@@ -114,6 +121,7 @@ with ask_tab:
                 st.markdown(msg["text"])
 
     if question:
+        st.session_state.asked += 1
         st.session_state.chat.append({"role": "user", "text": question})
         with st.chat_message("user"):
             st.markdown(question)
@@ -121,10 +129,6 @@ with ask_tab:
             result = run_agent(question)
             show_result(result)
         st.session_state.chat.append({"role": "assistant", "result": result})
-
-    if st.session_state.chat and st.button("🗑️ Clear chat"):
-        st.session_state.chat = []
-        st.rerun()
 
 with data_tab:
     tables = load_tables()
