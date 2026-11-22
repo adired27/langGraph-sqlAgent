@@ -89,13 +89,17 @@ with ask_tab:
     st.session_state.setdefault("chat", [])
     limit_reached = len(st.session_state.chat) // 2 >= MAX_QUESTIONS
 
-    # Example prompts, always visible at the top
-    st.caption("Try an example:")
-    cols = st.columns(2)
-    for i, example in enumerate(EXAMPLES):
-        if cols[i % 2].button(example, key=f"ex{i}", use_container_width=True, disabled=limit_reached):
-            st.session_state.pending = example
-            st.rerun()
+    # Example prompts at the top, minus ones already asked in this chat
+    used = {m["text"] for m in st.session_state.chat if m["role"] == "user"}
+    used.add(st.session_state.get("pending"))
+    remaining = [ex for ex in EXAMPLES if ex not in used]
+    if remaining:
+        st.caption("Try an example:")
+        cols = st.columns(2)
+        for i, example in enumerate(remaining):
+            if cols[i % 2].button(example, key=example, use_container_width=True, disabled=limit_reached):
+                st.session_state.pending = example
+                st.rerun()
 
     if limit_reached:
         st.info(f"You've reached the demo limit of {MAX_QUESTIONS} questions. Thanks for trying it out!")
