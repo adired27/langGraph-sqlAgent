@@ -30,16 +30,27 @@ graph TD
 4. **`route`**: decides where to go next. If there was an error and fewer than 3 attempts, it goes back to `generate_sql`. Otherwise it goes to `answer`.
 5. **`answer`**: Claude turns the result rows into a plain-English sentence, or the agent explains why it couldn't answer.
 
-**State** is a single dict shared by every node: `question`, `schema`, `sql`, `error`, `attempts`, `rows`, `answer`. Each node returns only the fields it changes.
+**State** is a single dict shared by every node: `question`, `schema`, `sql`, `error`, `attempts`, `columns`, `rows`, `answer`. Each node returns only the fields it changes.
 
 **Safety:** the database is opened read-only, so even a bad query can't change data.
+
+## Web app
+
+A Streamlit chat interface (`app.py`) on top of the same graph:
+
+- **Ask tab:** type a question or click an example prompt. Each answer shows the agent's steps live (reading the schema, writing SQL, retrying on errors), then the plain-English answer with the SQL and result table underneath.
+- **Browse data tab:** every table's schema and full contents, so you can check answers yourself.
+- **Example prompts** stay at the top and disappear once asked. **Clear chat** (top right) brings them back.
+- **Public demo guardrails:** 10 questions per visitor and a 1,024-token cap per model call, to keep API costs predictable.
+
+The app builds the sample database automatically on first run, and `graph.stream()` is what lets it show each node's progress as it happens.
 
 ## Project layout
 
 | File | What it does |
 |---|---|
 | `agent.py` | State, nodes, router and graph: the whole agent |
-| `app.py` | Web chat UI (Streamlit): shows each step live, plus the SQL and result table |
+| `app.py` | Web app (Streamlit): chat with live steps, example prompts, and a data browser |
 | `main.py` | Command line: ask one question or keep chatting |
 | `data/seed.py` | Builds a sample store database (customers, products, orders) |
 
@@ -50,8 +61,10 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env          # then put your Anthropic API key in .env
-python data/seed.py           # creates data/shop.db
+python data/seed.py           # creates data/shop.db (the web app also does this automatically)
 ```
+
+To deploy your own copy on [Streamlit Community Cloud](https://share.streamlit.io), point it at `app.py` and add `ANTHROPIC_API_KEY = "..."` under the app's **Secrets**.
 
 ## Usage
 
