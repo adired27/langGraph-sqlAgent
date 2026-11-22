@@ -12,6 +12,10 @@ DB_PATH = Path(__file__).parent / "data" / "shop.db"
 MODEL = os.getenv("MODEL", "anthropic:claude-haiku-5-5")
 MAX_ATTEMPTS = 3
 
+# Remove stray spaces/line breaks from a pasted key (they break the HTTP header).
+if key := os.getenv("ANTHROPIC_API_KEY"):
+    os.environ["ANTHROPIC_API_KEY"] = "".join(key.split())
+
 SQL_PROMPT = """You write SQLite queries for the schema below.
 Write exactly one read-only SELECT query. Use only tables and columns in the schema.
 Sort results in a meaningful order (e.g. highest first) with ORDER BY.
